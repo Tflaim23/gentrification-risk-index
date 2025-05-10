@@ -1,0 +1,17 @@
+# Gentrification Risk Forecasting Heat Map
+
+This individual project forecasts and maps gentrification risk in Indianapolis at the neighborhood level using public data.
+
+## Goals
+- Predict which areas are likely to gentrify, stabilize, or decline
+- Showcase forecasting, modeling, and geospatial analysis skills
+- Apply actuarial and statistical thinking to real estate and urban risk
+
+## Tools
+- R, Excel, GitHub
+- Packages: `tidycensus`, `leaflet`, `prophet`, `ggplot2`, etc.
+
+## Data Sources
+- U.S. Census (via `tidycensus`)
+- Zillow (ZHVI/ZORI)
+- City open data (permits, crime, etc.)
