@@ -1,7 +1,7 @@
-Gentrification Risk Forecasting Heat Map, Thomas Flaim
+Gentrification Risk Forecasting Heat Map
 
 This individual project forecasts and maps gentrification risk in Indianapolis at the neighborhood level using public data.
-
+This project was independently created by Thomas Flaim, a student at Purdue University, for the purpose of demonstrating applied actuarial and real estate analytics. All modeling, data wrangling, and forecasting logic were developed from scratch unless otherwise cited.
 Goals
 - Predict which areas are likely to gentrify, stabilize, or decline
 - Showcase forecasting, modeling, and geospatial analysis skills
