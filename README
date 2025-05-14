@@ -10,7 +10,7 @@ Goals
 
 Tools
 - R, Excel, GitHub
-- Packages: `tidycensus`, `leaflet`, `prophet`, `ggplot2`, etc.
+- Packages: `tidycensus`, `dplyr`, etc. (all listed in scripts folder)
 
 Data Sources
 - U.S. Census (via `tidycensus`)
