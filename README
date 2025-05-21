@@ -16,9 +16,10 @@ Goals
 
 Tools
 - R, Excel, GitHub
-- Packages: `tidycensus`, `dplyr`, etc. (all listed in scripts folder)
+- Packages: `tidycensus`, `dplyr`, etc. (many used, all listed in scripts folder)
 
-Data Sources
+Sources
 - U.S. Census (via `tidycensus`)
 - Zillow (ZHVI/ZORI)
 - OpenIndy (Mayor's Action Center)
+- Others isted in factor assesment document
