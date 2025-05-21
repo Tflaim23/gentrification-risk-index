@@ -32,7 +32,7 @@ zip_tract_crosswalk <- crosswalk %>%
   mutate(
     zip = str_pad(as.character(ZIP), 5, pad = "0"),
     tract = str_pad(as.character(TRACT), 11, pad = "0"),
-    county = str_sub(tract, 1, 5)  # first 5 digits of GEOID = state + county
+    county = str_sub(tract, 1, 5)  
   ) %>%
   filter(zip %in% marion_zips, county == "18097") %>%
   transmute(zip, tract, ratio = RES_RATIO)
