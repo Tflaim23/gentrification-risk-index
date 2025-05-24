@@ -9,6 +9,8 @@ library(purrr)
 library(writexl)
 
 demographics_data <- read_csv("data_raw/percent_white_by_tract_raw.csv")
+
+demo_ts <- demographics_data %>%
   select(GEOID, NAME, year, percent_white) %>%
   mutate(
     GEOID = as.character(GEOID),
@@ -54,7 +56,10 @@ demo_forecast_clean <- demo_forecast %>%
   filter(!is.na(.mean)) %>%
   select(GEOID, year, .mean) %>%
   rename(percent_white = .mean) %>%
-  mutate(NAME = NA_character_) %>%
+  mutate(
+    percent_white = pmin(100, pmax(0, percent_white)),
+    NAME = NA_character_
+  ) %>%
   select(GEOID, NAME, year, percent_white)
 
 write_csv(demo_forecast_clean, "outputs/forecast_percent_white_by_tract_raw.csv")
