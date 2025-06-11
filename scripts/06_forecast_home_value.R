@@ -6,9 +6,20 @@ library(fabletools)
 library(feasts)
 library(tidyr)
 library(purrr)
+library(zoo)
 library(writexl)
 
-zhvi_data <- read_csv("data_raw/zhvi_by_tract_year_clean.csv")
+zhvi_data <- read_csv("data_raw/zhvi_by_tract_year_clean.csv") %>%
+  arrange(GEOID, year) %>%
+  group_by(GEOID) %>%
+  mutate(zhvi_avg_weighted = ifelse(
+    year > min(year) &
+      (zhvi_avg_weighted > 5 * lag(zhvi_avg_weighted) |
+         zhvi_avg_weighted < 0.2 * lag(zhvi_avg_weighted)),
+    NA_real_,
+    zhvi_avg_weighted
+  )) %>%
+  ungroup()
 
 zhvi_ts <- zhvi_data %>%
   select(GEOID, year, zhvi_avg_weighted) %>%
@@ -16,9 +27,21 @@ zhvi_ts <- zhvi_data %>%
   filter(!is.na(zhvi_avg_weighted), zhvi_avg_weighted > 0) %>%
   group_by(GEOID) %>%
   filter(n() >= 3) %>%
+  arrange(year) %>%
+  mutate(
+    lag_value = lag(zhvi_avg_weighted),
+    ratio = zhvi_avg_weighted / lag_value,
+    valid_ratio = is.na(ratio) | (ratio >= 0.2 & ratio <= 5)
+  ) %>%
+  filter(all(valid_ratio)) %>%
+  mutate(
+    pct_change = abs((zhvi_avg_weighted - lag_value) / lag_value),
+    keep_row = ifelse(is.na(pct_change), TRUE, pct_change <= 0.5)
+  ) %>%
+  filter(keep_row) %>%
+  mutate(log_zhvi = log(zhvi_avg_weighted)) %>%
   ungroup() %>%
   distinct() %>%
-  mutate(log_zhvi = log(zhvi_avg_weighted)) %>%
   as_tsibble(index = year, key = GEOID) %>%
   fill_gaps(.full = TRUE)
 
@@ -30,19 +53,20 @@ validate_forecast <- function(log_values) {
 }
 
 fit_arima_safely <- function(ts_data) {
-  full_model <- tryCatch({
-    model(ts_data, arima = ARIMA(log_zhvi ~ trend() + pdq(p = 1:3, d = 1, q = 0:3)))
-  }, error = function(e) NULL)
+  try_model <- function(formula) {
+    tryCatch({ model(ts_data, arima = ARIMA(formula)) }, error = function(e) NULL)
+  }
   
+  full_model <- try_model(log_zhvi ~ trend() + pdq(1:3, 1, 0:3))
   if (!is.null(full_model)) {
     fc <- forecast(full_model, h = 5)
     if (validate_forecast(fc$.mean)) return(full_model)
   }
   
-  message("Fallback model used for GEOID: ", unique(ts_data$GEOID))
-  tryCatch({
-    model(ts_data, arima = ARIMA(log_zhvi ~ pdq(1, 1, 0)))
-  }, error = function(e2) NULL)
+  fallback_model <- try_model(log_zhvi ~ trend())
+  if (!is.null(fallback_model)) return(fallback_model)
+  
+  try_model(log_zhvi ~ 1)
 }
 
 zhvi_models <- zhvi_ts %>%
@@ -52,29 +76,41 @@ zhvi_models <- zhvi_ts %>%
   ungroup() %>%
   filter(!map_lgl(model, is.null))
 
-zhvi_forecast <- zhvi_models %>%
+valid_zhvi_models <- zhvi_models %>%
+  mutate(order_check = map_chr(model, function(mdl_tbl) {
+    tryCatch({
+      spec <- mdl_tbl$arima[[1]]$fit$spec
+      paste0("(", spec$p, ",", spec$d, ",", spec$q, ")")
+    }, error = function(e) "unknown")
+  })) %>%
+  filter(order_check != "(0,0,0)", order_check != "unknown")
+
+zhvi_forecast <- valid_zhvi_models %>%
   mutate(forecast = map(model, forecast, h = 5)) %>%
   select(GEOID, forecast) %>%
-  unnest(forecast)
-
-zhvi_forecast_clean <- zhvi_forecast %>%
-  filter(!is.na(.mean)) %>%
-  mutate(zhvi_forecast = exp(.mean)) %>%
-  select(GEOID, year, zhvi_forecast) %>%
+  unnest(forecast) %>%
+  group_by(GEOID) %>%
+  arrange(year) %>%
+  mutate(
+    smoothed_log = zoo::rollapply(.mean, width = 3, FUN = mean, fill = NA, align = "right"),
+    smoothed_log = ifelse(is.na(smoothed_log), .mean, smoothed_log),
+    zhvi_forecast = exp(smoothed_log)
+  ) %>%
+  ungroup() %>%
   mutate(NAME = NA_character_) %>%
+  arrange(GEOID, year) %>%
   select(GEOID, NAME, year, zhvi_forecast)
 
-write_csv(zhvi_forecast_clean, "outputs/forecast_zhvi_by_tract.csv")
-write_xlsx(zhvi_forecast_clean, "outputs/forecast_zhvi_by_tract.xlsx")
+write_csv(zhvi_forecast, "outputs/forecast_zhvi_by_tract.csv")
+write_xlsx(zhvi_forecast, "outputs/forecast_zhvi_by_tract.xlsx")
 
-model_orders <- zhvi_models %>%
+model_orders <- valid_zhvi_models %>%
   mutate(arima_order = map_chr(model, function(mdl_tbl) {
     tryCatch({
       spec <- mdl_tbl$arima[[1]]$fit$spec
       paste0("(", spec$p, ",", spec$d, ",", spec$q, ")")
-    }, error = function(e) NA_character_)
+    }, error = function(e) "trend")
   })) %>%
   select(GEOID, arima_order)
 
 print(model_orders %>% count(arima_order, sort = TRUE))
-
