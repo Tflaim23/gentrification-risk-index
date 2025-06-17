@@ -11,8 +11,6 @@ library(zoo)
 
 income_data <- read_csv("data_raw/income_by_tract_raw.csv")
 
-income_data <- read_csv("data_raw/income_by_tract_raw.csv")
-
 income_data <- income_data %>%
   arrange(GEOID, year) %>%
   group_by(GEOID) %>%

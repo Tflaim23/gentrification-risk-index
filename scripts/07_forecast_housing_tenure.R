@@ -6,18 +6,30 @@ library(fabletools)
 library(feasts)
 library(tidyr)
 library(purrr)
+library(zoo)
 library(writexl)
 
-tenure_data <- read_csv("data_raw/housing_tenure_burden_raw.csv")
-
-housing_pressure_ts <- tenure_data %>%
+raw <- read_csv("data_raw/housing_tenure_burden_raw.csv") %>%
   mutate(
     GEOID = as.character(GEOID),
     year = as.integer(year),
     housing_pressure_score = renter_occupancy_rate * percent_rent_burdened / 100
   ) %>%
-  select(GEOID, NAME, year, housing_pressure_score) %>%
   filter(!is.na(housing_pressure_score), housing_pressure_score > 0) %>%
+  arrange(GEOID, year)
+
+clipped <- raw %>%
+  group_by(GEOID) %>%
+  mutate(
+    lag_val = lag(housing_pressure_score),
+    ratio = housing_pressure_score / lag_val,
+    keep = is.na(ratio) | (ratio <= 5 & ratio >= 0.2)
+  ) %>%
+  filter(keep) %>%
+  select(-lag_val, -ratio, -keep) %>%
+  ungroup()
+
+ts_data <- clipped %>%
   group_by(GEOID) %>%
   filter(n() >= 3) %>%
   ungroup() %>%
@@ -26,47 +38,63 @@ housing_pressure_ts <- tenure_data %>%
   as_tsibble(index = year, key = GEOID) %>%
   fill_gaps(.full = TRUE)
 
-fit_arima_safe <- function(ts_data) {
-  tryCatch({
-    model(ts_data, arima = ARIMA(log_score ~ pdq(p = 1:3, d = 1, q = 0:3)))
-  }, error = function(e) {
-    message("Fallback model used for GEOID: ", unique(ts_data$GEOID))
-    tryCatch({
-      model(ts_data, arima = ARIMA(log_score ~ pdq(1, 1, 0)))
-    }, error = function(e2) {
-      return(NULL)
-    })
-  })
+validate_forecast <- function(values) {
+  if (any(is.na(values)) || length(values) < 2) return(FALSE)
+  max_growth <- max(values[-1] / values[-length(values)], na.rm = TRUE)
+  return(max_growth <= 1.5)
 }
 
-housing_models <- housing_pressure_ts %>%
+fit_arima_safely <- function(ts) {
+  try_model <- function(formula) {
+    tryCatch({ model(ts, arima = ARIMA(formula)) }, error = function(e) NULL)
+  }
+  
+  full_model <- try_model(log_score ~ trend() + pdq(1:3, 1, 0:3))
+  if (!is.null(full_model)) {
+    fc <- forecast(full_model, h = 5)
+    predicted <- exp(fc$.mean)
+    if (validate_forecast(predicted)) return(full_model)
+  }
+  
+  fallback_model <- try_model(log_score ~ trend())
+  if (!is.null(fallback_model)) return(fallback_model)
+  
+  try_model(log_score ~ 1)
+}
+
+models <- ts_data %>%
   group_by(GEOID) %>%
   nest() %>%
-  mutate(model = map(data, fit_arima_safe)) %>%
+  mutate(model = map(data, fit_arima_safely)) %>%
   ungroup() %>%
   filter(!map_lgl(model, is.null))
 
-housing_forecast <- housing_models %>%
+forecast_data <- models %>%
   mutate(forecast = map(model, forecast, h = 5)) %>%
   select(GEOID, forecast) %>%
-  unnest(forecast)
-
-housing_forecast_clean <- housing_forecast %>%
-  filter(!is.na(.mean)) %>%
-  mutate(housing_pressure_forecast = exp(.mean)) %>%
-  select(GEOID, year, housing_pressure_forecast) %>%
+  unnest(forecast) %>%
+  group_by(GEOID) %>%
+  arrange(year) %>%
+  mutate(
+    forecast_raw = exp(.mean),
+    smoothed = zoo::rollapply(forecast_raw, width = 3, FUN = mean, fill = NA, align = "right"),
+    smoothed = ifelse(is.na(smoothed), forecast_raw, smoothed),
+    housing_pressure_forecast = pmin(100, pmax(0, smoothed))
+  ) %>%
+  ungroup() %>%
   mutate(NAME = NA_character_) %>%
-  select(GEOID, NAME, year, housing_pressure_forecast)
+  select(GEOID, NAME, year, housing_pressure_forecast) %>%
+  arrange(GEOID, year)
 
-write_csv(housing_forecast_clean, "outputs/forecast_housing_pressure_by_tract.csv")
-write_xlsx(housing_forecast_clean, "outputs/forecast_housing_pressure_by_tract.xlsx")
+write_csv(forecast_data, "outputs/forecast_housing_pressure_by_tract.csv")
+write_xlsx(forecast_data, "outputs/forecast_housing_pressure_by_tract.xlsx")
 
-model_orders <- housing_models %>%
+model_orders <- models %>%
   mutate(arima_order = map_chr(model, function(mdl_tbl) {
     tryCatch({
       spec <- mdl_tbl$arima[[1]]$fit$spec
       paste0("(", spec$p, ",", spec$d, ",", spec$q, ")")
-    }, error = function(e) NA_character_)
+    }, error = function(e) "trend")
   })) %>%
   select(GEOID, arima_order)
 
