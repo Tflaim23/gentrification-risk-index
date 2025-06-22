@@ -7,7 +7,6 @@ library(tidyr)
 library(feasts)
 library(purrr)
 library(fabletools)
-library(zoo)
 
 demographics_data <- read_csv("data_raw/percent_white_by_tract_raw.csv") %>%
   arrange(GEOID, year) %>%
@@ -32,14 +31,11 @@ white_ts <- demographics_data %>%
   mutate(
     lag_value = lag(percent_white),
     ratio = percent_white / lag_value,
-    valid_ratio = is.na(ratio) | (ratio >= 0.2 & ratio <= 5)
-  ) %>%
-  filter(all(valid_ratio)) %>%            
-  mutate(
+    valid_ratio = is.na(ratio) | (ratio >= 0.2 & ratio <= 5),
     pct_change = abs((percent_white - lag_value) / lag_value),
     keep_row = ifelse(is.na(pct_change), TRUE, pct_change <= 0.5)
   ) %>%
-  filter(keep_row) %>%                    
+  filter(all(valid_ratio), keep_row) %>%
   ungroup() %>%
   distinct() %>%
   as_tsibble(index = year, key = GEOID) %>%
@@ -90,15 +86,22 @@ white_forecast <- valid_white_models %>%
   mutate(forecast = map(model, forecast, h = 5)) %>%
   select(GEOID, forecast) %>%
   unnest(forecast) %>%
-  group_by(GEOID) %>%
-  arrange(year) %>%
-  mutate(
-    smoothed = zoo::rollapply(.mean, width = 3, FUN = mean, fill = NA, align = "right"),
-    smoothed = ifelse(is.na(smoothed), .mean, smoothed),
-    percent_white = pmin(100, pmax(0, smoothed))    
-  ) %>%
-  ungroup() %>%
-  mutate(NAME = NA_character_) %>%
+  group_split(GEOID) %>%
+  map_df(function(df) {
+    if (nrow(df) >= 3) {
+      smoothed <- tryCatch({
+        predict(loess(.mean ~ year, data = df, span = 0.75), newdata = df$year)
+      }, error = function(e) df$.mean)
+    } else {
+      smoothed <- df$.mean
+    }
+    df %>%
+      mutate(
+        smoothed = smoothed,
+        percent_white = pmin(100, pmax(0, smoothed)),
+        NAME = NA_character_
+      )
+  }) %>%
   arrange(GEOID, year) %>%
   select(GEOID, NAME, year, percent_white)
 

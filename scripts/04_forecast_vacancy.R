@@ -6,7 +6,6 @@ library(fabletools)
 library(feasts)
 library(tidyr)
 library(purrr)
-library(zoo)
 library(writexl)
 
 vacancy_data <- read_csv("data_raw/vacancy_rate_by_tract_raw.csv") %>%
@@ -83,15 +82,23 @@ vacancy_forecast <- valid_models %>%
   unnest(forecast) %>%
   group_by(GEOID) %>%
   arrange(year) %>%
-  mutate(
-    smoothed = zoo::rollapply(.mean, width = 3, FUN = mean, fill = NA, align = "right"),
-    smoothed = ifelse(is.na(smoothed), .mean, smoothed),
-    vacancy_rate_forecast = pmin(100, pmax(0, smoothed))  
-  ) %>%
   ungroup() %>%
-  mutate(NAME = NA_character_) %>%
-  arrange(GEOID, year) %>%
+  group_split(GEOID) %>%
+  map_df(function(df) {
+    if (n_distinct(df$year) >= 3) {
+      smoothed <- tryCatch({
+        suppressWarnings(predict(loess(.mean ~ year, span = 0.75), newdata = data.frame(year = df$year)))
+      }, error = function(e) df$.mean)
+    } else {
+      smoothed <- df$.mean
+    }
+    
+    df$vacancy_rate_forecast <- pmin(100, pmax(0, smoothed))
+    df$NAME <- NA_character_
+    df
+  }) %>%
   select(GEOID, NAME, year, vacancy_rate_forecast)
+
 
 write_csv(vacancy_forecast, "outputs/forecast_vacancy_rate_by_tract.csv")
 write_xlsx(vacancy_forecast, "outputs/forecast_vacancy_rate_by_tract.xlsx")

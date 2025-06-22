@@ -5,13 +5,10 @@ library(writexl)
 
 forecast_vacancy <- read_csv("outputs/forecast_vacancy_rate_by_tract.csv")
 
-vacancy_raw <- read_csv("data_raw/vacancy_rate_by_tract_raw.csv") %>%
+vacancy_raw <- read_csv("data_raw_2023_interpolation/vacancy_rate_by_tract_raw.csv") %>%
   filter(year == 2023) %>%
-  transmute(
-    GEOID,
-    year,
-    vacancy_rate_forecast = vacancy_rate
-  )
+  rename(vacancy_rate_forecast = value) %>%
+  select(GEOID, year, vacancy_rate_forecast)
 
 combined_data <- bind_rows(vacancy_raw, forecast_vacancy) %>%
   arrange(GEOID, year)

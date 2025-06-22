@@ -6,7 +6,6 @@ library(fabletools)
 library(feasts)
 library(tidyr)
 library(purrr)
-library(zoo)
 library(writexl)
 
 raw <- read_csv("data_raw/housing_tenure_burden_raw.csv") %>%
@@ -69,25 +68,35 @@ models <- ts_data %>%
   ungroup() %>%
   filter(!map_lgl(model, is.null))
 
-forecast_data <- models %>%
+forecast_df <- models %>%
   mutate(forecast = map(model, forecast, h = 5)) %>%
   select(GEOID, forecast) %>%
   unnest(forecast) %>%
-  group_by(GEOID) %>%
-  arrange(year) %>%
-  mutate(
-    forecast_raw = exp(.mean),
-    smoothed = zoo::rollapply(forecast_raw, width = 3, FUN = mean, fill = NA, align = "right"),
-    smoothed = ifelse(is.na(smoothed), forecast_raw, smoothed),
-    housing_pressure_forecast = pmin(100, pmax(0, smoothed))
-  ) %>%
-  ungroup() %>%
+  mutate(forecast_raw = exp(.mean)) %>%
+  select(GEOID, year, forecast_raw) %>%
+  arrange(GEOID, year)
+
+loess_smoothed <- forecast_df %>%
+  group_split(GEOID) %>%
+  map_df(function(df) {
+    if (nrow(df) >= 3) {
+      smoothed <- tryCatch({
+        predict(loess(forecast_raw ~ year, span = 0.75), newdata = df)
+      }, error = function(e) df$forecast_raw)
+    } else {
+      smoothed <- df$forecast_raw
+    }
+    df$housing_pressure_forecast <- pmin(100, pmax(0, smoothed))
+    return(df)
+  })
+
+final_output <- loess_smoothed %>%
   mutate(NAME = NA_character_) %>%
   select(GEOID, NAME, year, housing_pressure_forecast) %>%
   arrange(GEOID, year)
 
-write_csv(forecast_data, "outputs/forecast_housing_pressure_by_tract.csv")
-write_xlsx(forecast_data, "outputs/forecast_housing_pressure_by_tract.xlsx")
+write_csv(final_output, "outputs/forecast_housing_pressure_by_tract.csv")
+write_xlsx(final_output, "outputs/forecast_housing_pressure_by_tract.xlsx")
 
 model_orders <- models %>%
   mutate(arima_order = map_chr(model, function(mdl_tbl) {

@@ -7,17 +7,13 @@ library(tidyr)
 library(feasts)
 library(purrr)
 library(fabletools)
-library(zoo)
 
-income_data <- read_csv("data_raw/income_by_tract_raw.csv")
-
-income_data <- income_data %>%
+income_data <- read_csv("data_raw/income_by_tract_raw.csv") %>%
   arrange(GEOID, year) %>%
   group_by(GEOID) %>%
   mutate(estimate = ifelse(
     year > min(year) & estimate > 5 * lag(estimate),
-    NA,
-    estimate
+    NA, estimate
   )) %>%
   ungroup()
 
@@ -35,22 +31,16 @@ income_ts <- income_data %>%
   mutate(
     lag_estimate = lag(estimate),
     ratio = estimate / lag_estimate,
-    valid_ratio = is.na(ratio) | (ratio >= 0.2 & ratio <= 5)
-  ) %>%
-  filter(all(valid_ratio)) %>%
-  mutate(
+    valid_ratio = is.na(ratio) | (ratio >= 0.2 & ratio <= 5),
     pct_change = abs((estimate - lag_estimate) / lag_estimate),
     keep_row = ifelse(is.na(pct_change), TRUE, pct_change <= 0.5)
   ) %>%
-  filter(keep_row) %>%
-  mutate(
-    log_estimate = log(estimate)
-  ) %>%
+  filter(all(valid_ratio), keep_row) %>%
+  mutate(log_estimate = log(estimate)) %>%
   ungroup() %>%
   distinct() %>%
   as_tsibble(index = year, key = GEOID) %>%
   fill_gaps(.full = TRUE)
-
 
 validate_forecast <- function(log_values) {
   values <- exp(log_values)
@@ -61,9 +51,7 @@ validate_forecast <- function(log_values) {
 
 fit_arima_safely <- function(ts_data) {
   try_model <- function(formula) {
-    tryCatch({
-      model(ts_data, arima = ARIMA(formula))
-    }, error = function(e) NULL)
+    tryCatch({ model(ts_data, arima = ARIMA(formula)) }, error = function(e) NULL)
   }
   
   full_model <- try_model(log_estimate ~ trend() + pdq(1:2, 1, 0:2))
@@ -98,15 +86,22 @@ income_forecast <- valid_income_models %>%
   mutate(forecast = map(model, forecast, h = 5)) %>%
   select(GEOID, forecast) %>%
   unnest(forecast) %>%
-  group_by(GEOID) %>%
-  arrange(year) %>%
-  mutate(
-    smoothed_log = zoo::rollapply(.mean, width = 3, FUN = mean, fill = NA, align = "right"),
-    smoothed_log = ifelse(is.na(smoothed_log), .mean, smoothed_log),
-    estimate = exp(smoothed_log)
-  ) %>%
-  ungroup() %>%
-  mutate(NAME = NA_character_) %>%
+  group_split(GEOID) %>%
+  map_df(function(df) {
+    if (nrow(df) >= 3) {
+      smoothed <- tryCatch({
+        predict(loess(.mean ~ year, data = df, span = 0.75), newdata = df$year)
+      }, error = function(e) df$.mean)
+    } else {
+      smoothed <- df$.mean
+    }
+    df %>%
+      mutate(
+        smoothed_log = smoothed,
+        estimate = exp(smoothed_log),
+        NAME = NA_character_
+      )
+  }) %>%
   arrange(GEOID, year) %>%
   select(GEOID, NAME, year, estimate)
 

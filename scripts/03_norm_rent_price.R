@@ -5,13 +5,10 @@ library(writexl)
 
 forecast_zori <- read_csv("outputs/forecast_zori_by_tract.csv")
 
-zori_raw <- read_csv("data_raw/zori_by_tract_year_clean.csv") %>%
+zori_raw <- read_csv("data_raw_2023_interpolation/zori_by_tract_year_clean.csv") %>%
   filter(year == 2023) %>%
-  transmute(
-    GEOID,
-    year,
-    zori_forecast = zori_avg_weighted
-  )
+  rename(zori_forecast = value) %>%
+  select(GEOID, year, zori_forecast)
 
 combined_data <- bind_rows(zori_raw, forecast_zori) %>%
   arrange(GEOID, year)

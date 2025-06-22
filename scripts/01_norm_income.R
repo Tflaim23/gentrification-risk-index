@@ -4,8 +4,10 @@ library(tidyr)
 library(writexl)
 
 forecast_income <- read_csv("outputs/forecast_income_by_tract.csv")
-income_raw <- read_csv("data_clean/income_by_tract_raw.csv") %>%
+
+income_raw <- read_csv("data_raw_2023_interpolation/income_by_tract_raw.csv") %>%
   filter(year == 2023) %>%
+  rename(estimate = value) %>%
   select(GEOID, NAME, year, estimate)
 
 combined_data <- bind_rows(income_raw, forecast_income) %>%
@@ -34,4 +36,3 @@ normalized_deltas <- delta_data %>%
 
 write_csv(normalized_deltas, "normalized_outputs/normalized_income_by_tract_deltas.csv")
 write_xlsx(normalized_deltas, "normalized_outputs/normalized_income_by_tract_deltas.xlsx")
-

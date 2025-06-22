@@ -6,7 +6,6 @@ library(fabletools)
 library(feasts)
 library(tidyr)
 library(purrr)
-library(zoo)
 library(writexl)
 
 zhvi_data <- read_csv("data_raw/zhvi_by_tract_year_clean.csv") %>%
@@ -31,14 +30,11 @@ zhvi_ts <- zhvi_data %>%
   mutate(
     lag_value = lag(zhvi_avg_weighted),
     ratio = zhvi_avg_weighted / lag_value,
-    valid_ratio = is.na(ratio) | (ratio >= 0.2 & ratio <= 5)
-  ) %>%
-  filter(all(valid_ratio)) %>%
-  mutate(
+    valid_ratio = is.na(ratio) | (ratio >= 0.2 & ratio <= 5),
     pct_change = abs((zhvi_avg_weighted - lag_value) / lag_value),
     keep_row = ifelse(is.na(pct_change), TRUE, pct_change <= 0.5)
   ) %>%
-  filter(keep_row) %>%
+  filter(all(valid_ratio), keep_row) %>%
   mutate(log_zhvi = log(zhvi_avg_weighted)) %>%
   ungroup() %>%
   distinct() %>%
@@ -89,15 +85,22 @@ zhvi_forecast <- valid_zhvi_models %>%
   mutate(forecast = map(model, forecast, h = 5)) %>%
   select(GEOID, forecast) %>%
   unnest(forecast) %>%
-  group_by(GEOID) %>%
-  arrange(year) %>%
-  mutate(
-    smoothed_log = zoo::rollapply(.mean, width = 3, FUN = mean, fill = NA, align = "right"),
-    smoothed_log = ifelse(is.na(smoothed_log), .mean, smoothed_log),
-    zhvi_forecast = exp(smoothed_log)
-  ) %>%
-  ungroup() %>%
-  mutate(NAME = NA_character_) %>%
+  group_split(GEOID) %>%
+  map_df(function(df) {
+    if (nrow(df) >= 3) {
+      smoothed_log <- tryCatch({
+        predict(loess(.mean ~ year, data = df, span = 0.75), newdata = df$year)
+      }, error = function(e) df$.mean)
+    } else {
+      smoothed_log <- df$.mean
+    }
+    df %>%
+      mutate(
+        smoothed_log = smoothed_log,
+        zhvi_forecast = exp(smoothed_log),
+        NAME = NA_character_
+      )
+  }) %>%
   arrange(GEOID, year) %>%
   select(GEOID, NAME, year, zhvi_forecast)
 

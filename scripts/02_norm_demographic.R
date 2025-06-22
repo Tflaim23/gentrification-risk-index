@@ -4,8 +4,10 @@ library(tidyr)
 library(writexl)
 
 forecast_white <- read_csv("outputs/forecast_percent_white_by_tract.csv")
-white_raw <- read_csv("data_raw/percent_white_by_tract_raw.csv") %>%
+
+white_raw <- read_csv("data_raw_2023_interpolation/percent_white_by_tract_raw.csv") %>%
   filter(year == 2023) %>%
+  rename(percent_white = value) %>%
   select(GEOID, NAME, year, percent_white)
 
 combined_data <- bind_rows(white_raw, forecast_white) %>%

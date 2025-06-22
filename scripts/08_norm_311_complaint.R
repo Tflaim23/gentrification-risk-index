@@ -5,24 +5,21 @@ library(purrr)
 
 calls_forecast <- read_csv("outputs/forecast_311_call_volume_by_tract.csv")
 
-calls_raw <- read_csv("data_raw/mac_calls_by_tract_raw.csv") %>%
+calls_raw <- read_csv("data_raw_2023_interpolation/mac_calls_by_tract_raw.csv") %>%
   filter(year == 2023) %>%
-  select(GEOID, NAME, year, call_volume)
+  select(GEOID, NAME, year, call_volume = value)
 
 combined_calls <- bind_rows(calls_raw, calls_forecast) %>%
   arrange(GEOID, year)
 
-income_z <- read_csv("normalized_outputs/normalized_income_by_tract.csv") %>%
-  filter(year == 2024) %>%
-  select(GEOID, income_z = income_zscore)
+income_z <- read_csv("2023_zscore/zscore_2023_income.csv") %>%
+  select(GEOID, income_z = zscore)
 
-white_z <- read_csv("normalized_outputs/normalized_white_by_tract.csv") %>%
-  filter(year == 2024) %>%
-  select(GEOID, white_z = white_zscore)
+white_z <- read_csv("2023_zscore/zscore_2023_percent_white.csv") %>%
+  select(GEOID, white_z = zscore)
 
-zori_z <- read_csv("normalized_outputs/normalized_zori_by_tract.csv") %>%
-  filter(year == 2024) %>%
-  select(GEOID, zori_z = zori_zscore)
+zori_z <- read_csv("2023_zscore/zscore_2023_zori.csv") %>%
+  select(GEOID, zori_z = zscore)
 
 stage_info <- list(income_z, white_z, zori_z) %>%
   reduce(full_join, by = "GEOID") %>%
@@ -53,7 +50,7 @@ normalized_calls_levels <- combined_calls %>%
     call_volume_zscore_adj = case_when(
       stage_weight == "super_late"   ~ -2 * call_volume_zscore,
       stage_weight == "late"         ~ -1 * call_volume_zscore,
-      stage_weight == "middle"       ~ 0,
+      stage_weight == "middle"       ~  0,
       stage_weight == "early"        ~  1 * call_volume_zscore,
       stage_weight == "super_early"  ~  2 * call_volume_zscore,
       TRUE                           ~ call_volume_zscore
@@ -79,7 +76,7 @@ normalized_calls_deltas <- calls_deltas %>%
     call_volume_delta_zscore_adj = case_when(
       stage_weight == "super_late"   ~ -2 * call_volume_delta_zscore,
       stage_weight == "late"         ~ -1 * call_volume_delta_zscore,
-      stage_weight == "middle"       ~ 0,
+      stage_weight == "middle"       ~  0,
       stage_weight == "early"        ~  1 * call_volume_delta_zscore,
       stage_weight == "super_early"  ~  2 * call_volume_delta_zscore,
       TRUE                           ~ call_volume_delta_zscore

@@ -2,7 +2,15 @@ library(dplyr)
 library(readr)
 library(writexl)
 
-zhvi <- read_csv("outputs/forecast_zhvi_by_tract.csv")
+zhvi_forecast <- read_csv("outputs/forecast_zhvi_by_tract.csv")
+
+zhvi_2023 <- read_csv("data_raw_2023_interpolation/zhvi_by_tract_year_clean.csv") %>%
+  filter(year == 2023) %>%
+  rename(zhvi_forecast = value) %>%
+  select(GEOID, year, zhvi_forecast)
+
+zhvi <- bind_rows(zhvi_2023, zhvi_forecast) %>%
+  arrange(GEOID, year)
 
 normalized_zhvi_levels <- zhvi %>%
   filter(year %in% 2025:2028) %>%
@@ -14,7 +22,7 @@ write_csv(normalized_zhvi_levels, "normalized_outputs/normalized_zhvi_by_tract.c
 write_xlsx(normalized_zhvi_levels, "normalized_outputs/normalized_zhvi_by_tract.xlsx")
 
 zhvi_deltas <- zhvi %>%
-  filter(year %in% 2024:2028) %>% 
+  filter(year %in% 2024:2028) %>%
   arrange(GEOID, year) %>%
   group_by(GEOID) %>%
   mutate(zhvi_delta = zhvi_forecast / lag(zhvi_forecast) - 1) %>%

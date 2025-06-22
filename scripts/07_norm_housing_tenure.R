@@ -4,10 +4,10 @@ library(writexl)
 
 forecast_housing <- read_csv("outputs/forecast_housing_pressure_by_tract.csv")
 
-housing_raw <- read_csv("data_raw/housing_tenure_burden_raw.csv") %>%
+housing_raw <- read_csv("data_raw_2023_interpolation/housing_tenure_burden_raw.csv") %>%
   filter(year == 2023) %>%
   mutate(
-    housing_pressure_forecast = renter_occupancy_rate * percent_rent_burdened / 100
+    housing_pressure_forecast = value 
   ) %>%
   select(GEOID, NAME, year, housing_pressure_forecast)
 

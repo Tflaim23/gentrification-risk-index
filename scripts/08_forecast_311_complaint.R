@@ -6,11 +6,9 @@ library(fabletools)
 library(feasts)
 library(tidyr)
 library(purrr)
-library(readxl)
 library(writexl)
-library(zoo)
 
-raw <- read_xlsx("data_clean/mac_calls_by_tract.xlsx") %>%
+raw <- read_csv("data_raw/mac_calls_by_tract_raw.csv") %>%
   mutate(GEOID = as.character(GEOID), year = as.integer(year)) %>%
   filter(!is.na(call_volume), call_volume > 0) %>%
   arrange(GEOID, year)
@@ -66,25 +64,37 @@ models <- ts_data %>%
   ungroup() %>%
   filter(!map_lgl(model, is.null))
 
-forecast_data <- models %>%
-  mutate(forecast = map(model, forecast, h = 5)) %>%
-  select(GEOID, forecast) %>%
-  unnest(forecast) %>%
-  group_by(GEOID) %>%
-  arrange(year) %>%
-  mutate(
-    forecast_raw = exp(.mean),
-    smoothed = zoo::rollapply(forecast_raw, width = 3, FUN = mean, fill = NA, align = "right"),
-    smoothed = ifelse(is.na(smoothed), forecast_raw, smoothed),
-    call_volume = pmax(0, smoothed)  
-  ) %>%
-  ungroup() %>%
-  mutate(NAME = NA_character_) %>%
+forecast_raw <- models %>%
+  mutate(forecast_output = map(model, ~forecast(.x, h = 5))) %>%
+  select(GEOID, forecast_output) %>%
+  unnest(forecast_output) %>%
+  mutate(call_volume_raw = exp(.mean))
+
+
+forecast_smoothed <- forecast_raw %>%
+  group_split(GEOID) %>%
+  map_df(function(df) {
+    if (nrow(df) >= 3) {
+      tryCatch({
+        loess_fit <- loess(call_volume_raw ~ year, data = df, span = 0.75)
+        df$call_volume <- predict(loess_fit, newdata = df)
+      }, error = function(e) {
+        df$call_volume <- df$call_volume_raw
+      })
+    } else {
+      df$call_volume <- df$call_volume_raw
+    }
+    df
+  })
+
+forecast_final <- forecast_smoothed %>%
+  mutate(call_volume = pmax(0, call_volume),
+         NAME = NA_character_) %>%
   select(GEOID, NAME, year, call_volume) %>%
   arrange(GEOID, year)
 
-write_csv(forecast_data, "outputs/forecast_311_call_volume_by_tract.csv")
-write_xlsx(forecast_data, "outputs/forecast_311_call_volume_by_tract.xlsx")
+write_csv(forecast_final, "outputs/forecast_311_call_volume_by_tract.csv")
+write_xlsx(forecast_final, "outputs/forecast_311_call_volume_by_tract.xlsx")
 
 model_orders <- models %>%
   mutate(arima_order = map_chr(model, function(mdl_tbl) {

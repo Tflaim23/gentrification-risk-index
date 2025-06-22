@@ -7,7 +7,6 @@ library(tidyr)
 library(feasts)
 library(purrr)
 library(fabletools)
-library(zoo)
 
 zori_data <- read_csv("data_raw/zori_by_tract_year_clean.csv") %>%
   arrange(GEOID, year) %>%
@@ -32,17 +31,12 @@ zori_ts <- zori_data %>%
   mutate(
     lag_value = lag(zori_avg_weighted),
     ratio = zori_avg_weighted / lag_value,
-    valid_ratio = is.na(ratio) | (ratio >= 0.2 & ratio <= 5)
-  ) %>%
-  filter(all(valid_ratio)) %>%
-  mutate(
+    valid_ratio = is.na(ratio) | (ratio >= 0.2 & ratio <= 5),
     pct_change = abs((zori_avg_weighted - lag_value) / lag_value),
     keep_row = ifelse(is.na(pct_change), TRUE, pct_change <= 0.5)
   ) %>%
-  filter(keep_row) %>%
-  mutate(
-    log_zori = log(zori_avg_weighted)
-  ) %>%
+  filter(all(valid_ratio), keep_row) %>%
+  mutate(log_zori = log(zori_avg_weighted)) %>%
   ungroup() %>%
   distinct() %>%
   as_tsibble(index = year, key = GEOID) %>%
@@ -59,7 +53,6 @@ fit_arima_safely <- function(ts_data) {
   try_model <- function(formula) {
     tryCatch({ model(ts_data, arima = ARIMA(formula)) }, error = function(e) NULL)
   }
-  
   full_model <- try_model(log_zori ~ trend() + pdq(1:2, 1, 0:2))
   if (!is.null(full_model)) {
     fc <- forecast(full_model, h = 5)
@@ -92,15 +85,22 @@ zori_forecast <- valid_zori_models %>%
   mutate(forecast = map(model, forecast, h = 5)) %>%
   select(GEOID, forecast) %>%
   unnest(forecast) %>%
-  group_by(GEOID) %>%
-  arrange(year) %>%
-  mutate(
-    smoothed_log = zoo::rollapply(.mean, width = 3, FUN = mean, fill = NA, align = "right"),
-    smoothed_log = ifelse(is.na(smoothed_log), .mean, smoothed_log),
-    zori_forecast = exp(smoothed_log)
-  ) %>%
-  ungroup() %>%
-  mutate(NAME = NA_character_) %>%
+  group_split(GEOID) %>%
+  map_df(function(df) {
+    if (nrow(df) >= 3) {
+      smoothed <- tryCatch({
+        predict(loess(.mean ~ year, data = df, span = 0.75), newdata = df$year)
+      }, error = function(e) df$.mean)
+    } else {
+      smoothed <- df$.mean
+    }
+    df %>%
+      mutate(
+        smoothed_log = smoothed,
+        zori_forecast = exp(smoothed_log),
+        NAME = NA_character_
+      )
+  }) %>%
   arrange(GEOID, year) %>%
   select(GEOID, NAME, year, zori_forecast)
 
