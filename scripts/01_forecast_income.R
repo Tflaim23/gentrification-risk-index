@@ -7,7 +7,7 @@ library(tidyr)
 library(feasts)
 library(purrr)
 library(fabletools)
-
+ 
 income_data <- read_csv("data_raw/income_by_tract_raw.csv") %>%
   arrange(GEOID, year) %>%
   group_by(GEOID) %>%

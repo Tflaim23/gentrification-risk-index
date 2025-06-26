@@ -26,7 +26,8 @@ delta_data <- combined_data %>%
   arrange(GEOID, year) %>%
   group_by(GEOID) %>%
   mutate(vacancy_delta = vacancy_rate_forecast / lag(vacancy_rate_forecast) - 1) %>%
-  ungroup()
+  ungroup() %>%
+  mutate(vacancy_delta = ifelse(is.infinite(vacancy_delta), NA, vacancy_delta)) 
 
 normalized_deltas <- delta_data %>%
   filter(year %in% 2024:2028, !is.na(vacancy_delta)) %>%
