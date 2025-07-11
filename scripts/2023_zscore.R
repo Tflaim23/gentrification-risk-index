@@ -22,8 +22,9 @@ for (path in files) {
   
   df_2023 <- df_2023 %>%
     mutate(
-      zscore = as.numeric(scale(value)),
-      zscore = if (grepl("vacancy", indicator)) -1 * zscore else zscore
+      zscore_raw = as.numeric(scale(value)),
+      zscore_raw = if (grepl("vacancy", indicator)) -1 * zscore_raw else zscore_raw,
+      zscore = pmin(pmax(zscore_raw, -4), 4)
     )
   
   out_csv  <- file.path("2023_zscore", paste0("zscore_2023_", indicator, ".csv"))
@@ -32,4 +33,3 @@ for (path in files) {
   write_csv(df_2023, out_csv)
   write_xlsx(df_2023, out_xlsx)
 }
-

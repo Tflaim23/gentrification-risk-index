@@ -6,9 +6,7 @@ forecast_housing <- read_csv("outputs/forecast_housing_pressure_by_tract.csv")
 
 housing_raw <- read_csv("data_raw_2023_interpolation/housing_tenure_burden_raw.csv") %>%
   filter(year == 2023) %>%
-  mutate(
-    housing_pressure_forecast = value 
-  ) %>%
+  mutate(housing_pressure_forecast = value) %>%
   select(GEOID, NAME, year, housing_pressure_forecast)
 
 combined_data <- bind_rows(housing_raw, forecast_housing) %>%
@@ -17,7 +15,10 @@ combined_data <- bind_rows(housing_raw, forecast_housing) %>%
 normalized_levels <- combined_data %>%
   filter(year >= 2024 & year <= 2028) %>%
   group_by(year) %>%
-  mutate(housing_pressure_zscore = as.numeric(scale(housing_pressure_forecast))) %>%
+  mutate(
+    housing_pressure_zscore_raw = as.numeric(scale(housing_pressure_forecast)),
+    housing_pressure_zscore = pmin(pmax(housing_pressure_zscore_raw, -4), 4)
+  ) %>%
   ungroup()
 
 write_csv(normalized_levels, "normalized_outputs/normalized_housing_pressure_by_tract.csv")
@@ -32,7 +33,10 @@ delta_data <- combined_data %>%
 normalized_deltas <- delta_data %>%
   filter(year >= 2024 & year <= 2028, !is.na(housing_pressure_delta)) %>%
   group_by(year) %>%
-  mutate(housing_pressure_delta_zscore = as.numeric(scale(housing_pressure_delta))) %>%
+  mutate(
+    housing_pressure_delta_zscore_raw = as.numeric(scale(housing_pressure_delta)),
+    housing_pressure_delta_zscore = pmin(pmax(housing_pressure_delta_zscore_raw, -4), 4)
+  ) %>%
   ungroup()
 
 write_csv(normalized_deltas, "normalized_outputs/normalized_housing_pressure_by_tract_deltas.csv")

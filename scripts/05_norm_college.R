@@ -15,7 +15,10 @@ combined_data <- bind_rows(edu_raw, forecast_edu) %>%
 normalized_levels <- combined_data %>%
   filter(year %in% 2024:2028) %>%
   group_by(year) %>%
-  mutate(edu_zscore = as.numeric(scale(percent_bachelors_plus))) %>%
+  mutate(
+    edu_zscore_raw = as.numeric(scale(percent_bachelors_plus)),
+    edu_zscore = pmin(pmax(edu_zscore_raw, -4), 4)
+  ) %>%
   ungroup()
 
 write_csv(normalized_levels, "normalized_outputs/normalized_education_by_tract.csv")
@@ -30,7 +33,10 @@ delta_data <- combined_data %>%
 normalized_deltas <- delta_data %>%
   filter(year %in% 2024:2028, !is.na(edu_delta)) %>%
   group_by(year) %>%
-  mutate(edu_delta_zscore = as.numeric(scale(edu_delta))) %>%
+  mutate(
+    edu_delta_zscore_raw = as.numeric(scale(edu_delta)),
+    edu_delta_zscore = pmin(pmax(edu_delta_zscore_raw, -4), 4)
+  ) %>%
   ungroup()
 
 write_csv(normalized_deltas, "normalized_outputs/normalized_education_by_tract_deltas.csv")

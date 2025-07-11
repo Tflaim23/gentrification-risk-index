@@ -43,18 +43,19 @@ stage_info <- list(income_z, white_z, zori_z) %>%
 normalized_calls_levels <- combined_calls %>%
   filter(year %in% 2024:2028) %>%
   group_by(year) %>%
-  mutate(call_volume_zscore = as.numeric(scale(call_volume))) %>%
+  mutate(call_volume_zscore_raw = as.numeric(scale(call_volume))) %>%
   ungroup() %>%
   left_join(stage_info, by = "GEOID") %>%
   mutate(
-    call_volume_zscore_adj = case_when(
-      stage_weight == "super_late"   ~ -2 * call_volume_zscore,
-      stage_weight == "late"         ~ -1 * call_volume_zscore,
+    call_volume_zscore_adj_raw = case_when(
+      stage_weight == "super_late"   ~ -2 * call_volume_zscore_raw,
+      stage_weight == "late"         ~ -1 * call_volume_zscore_raw,
       stage_weight == "middle"       ~  0,
-      stage_weight == "early"        ~  1 * call_volume_zscore,
-      stage_weight == "super_early"  ~  2 * call_volume_zscore,
-      TRUE                           ~ call_volume_zscore
-    )
+      stage_weight == "early"        ~  1 * call_volume_zscore_raw,
+      stage_weight == "super_early"  ~  2 * call_volume_zscore_raw,
+      TRUE                           ~ call_volume_zscore_raw
+    ),
+    call_volume_zscore = pmin(pmax(call_volume_zscore_adj_raw, -4), 4)
   )
 
 write_csv(normalized_calls_levels, "normalized_outputs/normalized_call_volume_by_tract.csv")
@@ -69,18 +70,19 @@ calls_deltas <- combined_calls %>%
 normalized_calls_deltas <- calls_deltas %>%
   filter(year %in% 2024:2028, !is.na(call_volume_delta)) %>%
   group_by(year) %>%
-  mutate(call_volume_delta_zscore = as.numeric(scale(call_volume_delta))) %>%
+  mutate(call_volume_delta_zscore_raw = as.numeric(scale(call_volume_delta))) %>%
   ungroup() %>%
   left_join(stage_info, by = "GEOID") %>%
   mutate(
-    call_volume_delta_zscore_adj = case_when(
-      stage_weight == "super_late"   ~ -2 * call_volume_delta_zscore,
-      stage_weight == "late"         ~ -1 * call_volume_delta_zscore,
+    call_volume_delta_zscore_adj_raw = case_when(
+      stage_weight == "super_late"   ~ -2 * call_volume_delta_zscore_raw,
+      stage_weight == "late"         ~ -1 * call_volume_delta_zscore_raw,
       stage_weight == "middle"       ~  0,
-      stage_weight == "early"        ~  1 * call_volume_delta_zscore,
-      stage_weight == "super_early"  ~  2 * call_volume_delta_zscore,
-      TRUE                           ~ call_volume_delta_zscore
-    )
+      stage_weight == "early"        ~  1 * call_volume_delta_zscore_raw,
+      stage_weight == "super_early"  ~  2 * call_volume_delta_zscore_raw,
+      TRUE                           ~ call_volume_delta_zscore_raw
+    ),
+    call_volume_delta_zscore = pmin(pmax(call_volume_delta_zscore_adj_raw, -4), 4)
   )
 
 write_csv(normalized_calls_deltas, "normalized_outputs/normalized_call_volume_by_tract_deltas.csv")

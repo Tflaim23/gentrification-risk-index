@@ -16,7 +16,10 @@ combined_data <- bind_rows(white_raw, forecast_white) %>%
 normalized_levels <- combined_data %>%
   filter(year %in% 2024:2028) %>%
   group_by(year) %>%
-  mutate(white_zscore = as.numeric(scale(percent_white))) %>%
+  mutate(
+    white_zscore_raw = as.numeric(scale(percent_white)),
+    white_zscore = pmin(pmax(white_zscore_raw, -4), 4)
+  ) %>%
   ungroup()
 
 write_csv(normalized_levels, "normalized_outputs/normalized_white_by_tract.csv")
@@ -31,7 +34,10 @@ delta_data <- combined_data %>%
 normalized_deltas <- delta_data %>%
   filter(year %in% 2024:2028, !is.na(white_delta)) %>%
   group_by(year) %>%
-  mutate(white_delta_zscore = as.numeric(scale(white_delta))) %>%
+  mutate(
+    white_delta_zscore_raw = as.numeric(scale(white_delta)),
+    white_delta_zscore = pmin(pmax(white_delta_zscore_raw, -4), 4)
+  ) %>%
   ungroup()
 
 write_csv(normalized_deltas, "normalized_outputs/normalized_white_by_tract_deltas.csv")

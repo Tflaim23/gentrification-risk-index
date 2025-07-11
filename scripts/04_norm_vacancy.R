@@ -16,7 +16,10 @@ combined_data <- bind_rows(vacancy_raw, forecast_vacancy) %>%
 normalized_levels <- combined_data %>%
   filter(year %in% 2024:2028) %>%
   group_by(year) %>%
-  mutate(vacancy_zscore = -as.numeric(scale(vacancy_rate_forecast))) %>%
+  mutate(
+    vacancy_zscore_raw = -as.numeric(scale(vacancy_rate_forecast)),
+    vacancy_zscore = pmin(pmax(vacancy_zscore_raw, -4), 4)
+  ) %>%
   ungroup()
 
 write_csv(normalized_levels, "normalized_outputs/normalized_vacancy_rate_by_tract.csv")
@@ -32,7 +35,10 @@ delta_data <- combined_data %>%
 normalized_deltas <- delta_data %>%
   filter(year %in% 2024:2028, !is.na(vacancy_delta)) %>%
   group_by(year) %>%
-  mutate(vacancy_delta_zscore = -as.numeric(scale(vacancy_delta))) %>%
+  mutate(
+    vacancy_delta_zscore_raw = -as.numeric(scale(vacancy_delta)),
+    vacancy_delta_zscore = pmin(pmax(vacancy_delta_zscore_raw, -4), 4)
+  ) %>%
   ungroup()
 
 write_csv(normalized_deltas, "normalized_outputs/normalized_vacancy_rate_by_tract_deltas.csv")

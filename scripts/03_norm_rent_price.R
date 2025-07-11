@@ -16,7 +16,10 @@ combined_data <- bind_rows(zori_raw, forecast_zori) %>%
 normalized_levels <- combined_data %>%
   filter(year %in% 2024:2028) %>%
   group_by(year) %>%
-  mutate(zori_zscore = as.numeric(scale(zori_forecast))) %>%
+  mutate(
+    zori_zscore_raw = as.numeric(scale(zori_forecast)),
+    zori_zscore = pmin(pmax(zori_zscore_raw, -4), 4)  
+  ) %>%
   ungroup()
 
 write_csv(normalized_levels, "normalized_outputs/normalized_zori_by_tract.csv")
@@ -31,7 +34,10 @@ delta_data <- combined_data %>%
 normalized_deltas <- delta_data %>%
   filter(year %in% 2024:2028, !is.na(zori_delta)) %>%
   group_by(year) %>%
-  mutate(zori_delta_zscore = as.numeric(scale(zori_delta))) %>%
+  mutate(
+    zori_delta_zscore_raw = as.numeric(scale(zori_delta)),
+    zori_delta_zscore = pmin(pmax(zori_delta_zscore_raw, -4), 4)
+  ) %>%
   ungroup()
 
 write_csv(normalized_deltas, "normalized_outputs/normalized_zori_by_tract_deltas.csv")

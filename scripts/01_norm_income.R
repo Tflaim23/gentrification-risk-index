@@ -16,7 +16,10 @@ combined_data <- bind_rows(income_raw, forecast_income) %>%
 normalized_levels <- combined_data %>%
   filter(year %in% 2024:2028) %>%
   group_by(year) %>%
-  mutate(income_zscore = as.numeric(scale(estimate))) %>%
+  mutate(
+    income_zscore_raw = as.numeric(scale(estimate)),
+    income_zscore = pmin(pmax(income_zscore_raw, -4), 4)
+  ) %>%
   ungroup()
 
 write_csv(normalized_levels, "normalized_outputs/normalized_income_by_tract.csv")
@@ -31,7 +34,10 @@ delta_data <- combined_data %>%
 normalized_deltas <- delta_data %>%
   filter(year %in% 2024:2028, !is.na(income_delta)) %>%
   group_by(year) %>%
-  mutate(income_delta_zscore = as.numeric(scale(income_delta))) %>%
+  mutate(
+    income_delta_zscore_raw = as.numeric(scale(income_delta)),
+    income_delta_zscore = pmin(pmax(income_delta_zscore_raw, -4), 4)
+  ) %>%
   ungroup()
 
 write_csv(normalized_deltas, "normalized_outputs/normalized_income_by_tract_deltas.csv")
