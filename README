@@ -4,15 +4,15 @@ Rather than predicting gentrification outright, the model forecasts trends in wh
 
 This project was independently created by Thomas Flaim, a student at Purdue University, for the purpose of demonstrating applied actuarial and real estate analytics. All modeling, data wrangling, and forecasting logic were developed from scratch unless otherwise cited.
 
-A detailed and dated project journal documenting the workflow and decision-making process is available as the first sheet in the Excel workbook.
+A detailed and dated project journal documenting the workflow and decision-making process is available as the first sheet in the .xlsm workbook.
 
 Goals
-- Predict which areas are likely to gentrify, stabilize, or decline for real estate team or urban planners.
+- Predict which areas are likely to gentrify, stabilize, or decline for real estate teams or urban planners.
 - Showcase forecasting, modeling, and geospatial analysis skills
 - Apply actuarial and statistical thinking to real estate and urban risk
 
 Tools
-- R, Excel, GitHub, QGIS, Mapbox
+- R, Excel, GitHub, ChatGPT, QGIS, Mapbox
 - Packages: `tidycensus`, `dplyr`, 'tsibble', 'fable', 'feasts', etc. (all others found in scripts)
 
 Sources

@@ -141,5 +141,24 @@ map.on('load', () => {
       const visibility = overlayCheckbox.checked ? 'visible' : 'none';
       map.setLayoutProperty('tracts-fill', 'visibility', visibility);
     });
+map.on('click', 'tracts-fill', (e) => {
+  const feature = e.features[0];
+  const bbox = turf.bbox(feature); 
+
+  const [west, south, east, north] = bbox;
+
+  const zillowURL = `https://www.zillow.com/homes/for_sale/?searchQueryState=` + encodeURIComponent(JSON.stringify({
+    pagination: {},
+    mapBounds: { west, south, east, north },
+    isMapVisible: true,
+    mapZoom: 15,
+    filterState: {},
+    isListVisible: true
+  }));
+
+  window.open(zillowURL, '_blank');
+});
+
+
   });
 });
