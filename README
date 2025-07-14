@@ -12,8 +12,8 @@ Goals
 - Apply actuarial and statistical thinking to real estate and urban risk
 
 Tools
-- R, Excel, GitHub
-- Packages: `tidycensus`, `dplyr`, 'tsibble', 'fable', 'feasts', etc. (all others found in scripts folder)
+- R, Excel, GitHub, QGIS, Mapbox
+- Packages: `tidycensus`, `dplyr`, 'tsibble', 'fable', 'feasts', etc. (all others found in scripts)
 
 Sources
 - U.S. Census (via `tidycensus`)
