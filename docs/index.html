@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Gentrification Risk Map</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="map"></div>
+
+  <div id="controls">
+    <label for="year">Year:</label>
+    <input type="range" id="year" min="2024" max="2028" value="2024" step="1" />
+    <span id="year-value">2024</span>
+
+    <label for="mode">Mode:</label>
+    <select id="mode">
+      <option value="normalized_percentile">Year-over-Year</option>
+      <option value="cumulative_percentile">Cumulative</option>
+    </select>
+  </div>
+
+ <div id="legend">
+  <strong>Gentrification Risk</strong><br>
+  <div class="legend-item"><div class="legend-color" style="background:#08306b"></div> Very Low</div>
+  <div class="legend-item"><div class="legend-color" style="background:#2171b5"></div> Low</div>
+  <div class="legend-item"><div class="legend-color" style="background:#deebf7"></div> Mild</div>
+  <div class="legend-item"><div class="legend-color" style="background:#ffffff"></div> Neutral</div>
+  <div class="legend-item"><div class="legend-color" style="background:#fcbba1"></div> Moderate</div>
+  <div class="legend-item"><div class="legend-color" style="background:#cb181d"></div> High</div>
+  <div class="legend-item"><div class="legend-color" style="background:#67000d"></div> Very High</div>
+  <div class="legend-item"><div class="legend-color" style="background:#333333"></div> Not enough data</div>
+</div>
+
+<div id="overlay-toggle">
+  <label>
+    <input type="checkbox" id="toggle-overlay" checked />
+    <strong>Risk Index:</strong> On / Off<br>
+    <span class="subtext">(view streets)</span>
+  </label>
+</div>
+
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+  <script src="app.js"></script>
+  <script>
+    document.getElementById('year').addEventListener('input', function () {
+      document.getElementById('year-value').textContent = this.value;
+    });
+  </script>
+</body>
+</html>
