@@ -62,6 +62,35 @@ body {
   border: 1px solid #999;
 }
 
+#confidence-key {
+  z-index: 10;
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: white;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
+  font-size: 13px;
+  line-height: 18px;
+  width: 180px;
+}
+
+#confidence-key .legend-item {
+  margin-bottom: 4px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+}
+
+#confidence-key .legend-color {
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  background: #666;
+  border-radius: 50%;
+}
+
 #controls label,
 #controls select,
 #controls input {
