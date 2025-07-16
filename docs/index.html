@@ -48,6 +48,39 @@
   <div class="legend-item"><div class="legend-color" style="background:#ffffff; border: none;"></div> Low (4–5 indicators)</div>
 </div>
 
+<div id="intro-popup" style="
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  padding: 20px;
+  max-width: 400px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  border-radius: 8px;
+  z-index: 999;
+  font-family: sans-serif;
+">
+  <h2 style="margin-top: 0;">Gentrification Risk Forecast</h2>
+  <p>
+    This interactive map visualizes projected gentrification risk in Indianapolis from 2024–2028 at the census tract level.
+  </p>
+  <p>
+    <strong><a href="https://github.com/Tflaim23/gentrification-risk-index" target="_blank">GitHub Repository</a></strong><br>
+    <strong><a href="https://github.com/Tflaim23/gentrification-risk-index/raw/main/Final_WriteUp.pdf" target="_blank">Final Project Write-Up (PDF)</a></strong>
+  </p>
+  <button onclick="document.getElementById('intro-popup').style.display='none'" style="
+    margin-top: 10px;
+    padding: 10px 20px;
+    font-weight: bold;
+    background: #0078A8;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  ">Proceed to Map</button>
+</div>
+
   <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
