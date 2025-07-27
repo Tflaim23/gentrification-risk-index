@@ -83,20 +83,27 @@ edu_forecast <- valid_edu_models %>%
   mutate(forecast = map(model, forecast, h = 5)) %>%
   select(GEOID, forecast) %>%
   unnest(forecast) %>%
-  group_by(GEOID) %>%
-  arrange(year) %>%
-  mutate(
-    smoothed = zoo::rollapply(.mean, width = 3, FUN = mean, fill = NA, align = "right"),
-    smoothed = ifelse(is.na(smoothed), .mean, smoothed),
-    percent_bachelors_plus = pmin(100, pmax(0, smoothed))
-  ) %>%
-  ungroup() %>%
-  mutate(NAME = NA_character_) %>%
+  group_split(GEOID) %>%
+  map_df(function(df) {
+    if (nrow(df) >= 3) {
+      smoothed <- tryCatch({
+        predict(loess(.mean ~ year, data = df, span = 0.75), newdata = df$year)
+      }, error = function(e) df$.mean)
+    } else {
+      smoothed <- df$.mean
+    }
+    df %>%
+      mutate(
+        smoothed = smoothed,
+        percent_bachelors_plus = pmin(100, pmax(0, smoothed)),
+        NAME = NA_character_
+      )
+  }) %>%
   arrange(GEOID, year) %>%
   select(GEOID, NAME, year, percent_bachelors_plus)
 
-write_csv(edu_forecast, "outputs/forecast_education_by_tract.csv")
-write_xlsx(edu_forecast, "outputs/forecast_education_by_tract.xlsx")
+write_csv(edu_forecast, "outputs/forecast_education_by_tract2.csv")
+write_xlsx(edu_forecast, "outputs/forecast_education_by_tract2.xlsx")
 
 model_orders <- valid_edu_models %>%
   mutate(arima_order = map_chr(model, function(mdl_tbl) {
@@ -107,3 +114,4 @@ model_orders <- valid_edu_models %>%
   }))
 
 print(model_orders %>% count(arima_order, sort = TRUE))
+

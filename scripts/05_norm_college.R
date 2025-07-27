@@ -5,7 +5,7 @@ library(writexl)
 
 forecast_edu <- read_csv("outputs/forecast_education_by_tract.csv")
 
-edu_raw <- read_csv("data_raw/education_by_tract_raw.csv") %>%
+edu_raw <- read_csv("data_raw_2023_interpolation/education_by_tract_raw.csv") %>%
   filter(year == 2023) %>%
   select(GEOID, NAME, year, percent_bachelors_plus)
 
